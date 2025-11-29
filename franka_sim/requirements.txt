@@ -5,4 +5,5 @@ gymnasium
 dm-robotics-transformations
 imageio[ffmpeg]
 lxml
-inputs==0.5
+# inputs==0.5  # Removed as we are using keyboard intervention
+pynput
