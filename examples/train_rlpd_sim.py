@@ -112,11 +112,17 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
         print(f"average time: {np.mean(time_list)}")
         return  # after done eval, return and exit
     
-    start_step = (
-        int(os.path.basename(natsorted(glob.glob(os.path.join(FLAGS.checkpoint_path, "buffer/*.pkl")))[-1])[12:-4]) + 1
-        if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path)
-        else 0
-    )
+    start_step = 0
+    if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path):
+        buffer_path = os.path.join(FLAGS.checkpoint_path, "buffer")
+        if os.path.exists(buffer_path):
+            buffer_files = glob.glob(os.path.join(buffer_path, "*.pkl"))
+            if buffer_files:
+                try:
+                    sorted_files = natsorted(buffer_files)
+                    start_step = int(os.path.basename(sorted_files[-1])[12:-4]) + 1
+                except (ValueError, IndexError) as e:
+                    print_green(f"Could not determine start step from buffer files: {e}. Starting from step 0.")
 
     datastore_dict = {
         "actor_env": data_store,
@@ -157,6 +163,17 @@ def actor(agent, data_store, intvn_data_store, env, sampling_rng):
 
     pbar = tqdm.tqdm(range(start_step, config.max_steps), dynamic_ncols=True)
     with dual_viewer as viewer:
+        # Attach viewer to wrappers after it's launched (if they support it)
+        # Note: viewer is the DualMujocoViewer object, viewer.viewer_1 is the actual mujoco viewer
+        current_env = env
+        while True:
+            if hasattr(current_env, 'attach_viewer'):
+                current_env.attach_viewer(viewer.viewer_1)
+            
+            if hasattr(current_env, 'env'):
+                current_env = current_env.env
+            else:
+                break
         for step in pbar:
             timer.tick("total")
             viewer.sync()
@@ -256,12 +273,14 @@ def learner(rng, agent, replay_buffer, demo_buffer, wandb_logger=None):
     """
     The learner loop, which runs when "--learner" is set to True.
     """
-    start_step = (
-        int(os.path.basename(checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path)))[11:])
-        + 1
-        if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path)
-        else 0
-    )
+    start_step = 0
+    if FLAGS.checkpoint_path and os.path.exists(FLAGS.checkpoint_path):
+        try:
+            latest_ckpt = checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path))
+            if latest_ckpt is not None:
+                start_step = int(os.path.basename(latest_ckpt)[11:]) + 1
+        except Exception as e:
+            print_green(f"Could not determine start step from checkpoint: {e}. Starting from step 0.")
     step = start_step
 
     def stats_callback(type: str, payload: dict) -> dict:
@@ -426,17 +445,42 @@ def main(_):
         jax.tree_map(jnp.array, agent), sharding.replicate()
     )
 
-    if FLAGS.checkpoint_path is not None and os.path.exists(FLAGS.checkpoint_path):
-        input("Checkpoint path already exists. Press Enter to resume training.")
-        ckpt = checkpoints.restore_checkpoint(
-            os.path.abspath(FLAGS.checkpoint_path),
-            agent.state,
-        )
-        agent = agent.replace(state=ckpt)
-        ckpt_number = os.path.basename(
-            checkpoints.latest_checkpoint(os.path.abspath(FLAGS.checkpoint_path))
-        )[11:]
-        print_green(f"Loaded previous checkpoint at step {ckpt_number}.")
+    if FLAGS.checkpoint_path is not None:
+        checkpoint_path = os.path.abspath(FLAGS.checkpoint_path)
+        
+        # Create directory if it doesn't exist
+        if not os.path.exists(checkpoint_path):
+            os.makedirs(checkpoint_path, exist_ok=True)
+            print_green(f"Created checkpoint directory: {checkpoint_path}")
+        else:
+            # Check if there are actual checkpoint files
+            try:
+                latest_ckpt = checkpoints.latest_checkpoint(checkpoint_path)
+                if latest_ckpt is not None:
+                    # If checkpoint exists, clear the directory and start fresh
+                    import shutil
+                    for item in os.listdir(checkpoint_path):
+                        item_path = os.path.join(checkpoint_path, item)
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                        else:
+                            os.remove(item_path)
+                    print_green(f"Cleared existing checkpoint directory. Starting new training.")
+                else:
+                    print_green("Checkpoint directory exists but is empty. Starting new training.")
+            except Exception as e:
+                # If there's any error checking checkpoint, try to clear and start fresh
+                try:
+                    import shutil
+                    for item in os.listdir(checkpoint_path):
+                        item_path = os.path.join(checkpoint_path, item)
+                        if os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                        else:
+                            os.remove(item_path)
+                    print_green(f"Cleared checkpoint directory after error ({e}). Starting new training.")
+                except Exception as e2:
+                    print_green(f"Could not clear checkpoint directory ({e2}). Continuing anyway.")
 
     def create_replay_buffer_and_wandb_logger():
         replay_buffer = MemoryEfficientReplayBufferDataStore(
@@ -465,15 +509,49 @@ def main(_):
             include_grasp_penalty=include_grasp_penalty,
         )
 
-        assert FLAGS.demo_path is not None
-        for path in FLAGS.demo_path:
-            with open(path, "rb") as f:
-                transitions = pkl.load(f)
-                for transition in transitions:
-                    if 'infos' in transition and 'grasp_penalty' in transition['infos']:
-                        transition['grasp_penalty'] = transition['infos']['grasp_penalty']
-                    demo_buffer.insert(transition)
-        print_green(f"demo buffer size: {len(demo_buffer)}")
+        if FLAGS.demo_path is not None:
+            valid_demo_paths = []
+            for path in FLAGS.demo_path:
+                # Check if path exists (handle both absolute and relative paths)
+                if not os.path.isabs(path):
+                    # Try relative to current directory and project root
+                    possible_paths = [
+                        path,
+                        os.path.join(os.getcwd(), path),
+                        os.path.join(os.path.dirname(os.path.dirname(__file__)), path)
+                    ]
+                    found = False
+                    for p in possible_paths:
+                        if os.path.exists(p):
+                            path = p
+                            found = True
+                            break
+                    if not found:
+                        print(f"Warning: Demo file not found: {path}. Skipping.")
+                        continue
+                elif not os.path.exists(path):
+                    print(f"Warning: Demo file not found: {path}. Skipping.")
+                    continue
+                
+                valid_demo_paths.append(path)
+                try:
+                    with open(path, "rb") as f:
+                        transitions = pkl.load(f)
+                        for transition in transitions:
+                            if 'infos' in transition and 'grasp_penalty' in transition['infos']:
+                                transition['grasp_penalty'] = transition['infos']['grasp_penalty']
+                            demo_buffer.insert(transition)
+                except Exception as e:
+                    print(f"Warning: Failed to load demo file {path}: {e}. Skipping.")
+                    continue
+            
+            if valid_demo_paths:
+                print_green(f"Loaded {len(valid_demo_paths)} demo file(s). Demo buffer size: {len(demo_buffer)}")
+            else:
+                print_green("No valid demo files found. Demo buffer will be empty initially.")
+        else:
+            print_green("No demo path provided. Demo buffer will be empty initially.")
+            
         print_green(f"online buffer size: {len(replay_buffer)}")
 
         if FLAGS.checkpoint_path is not None and os.path.exists(

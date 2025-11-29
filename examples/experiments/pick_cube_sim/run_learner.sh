@@ -1,7 +1,32 @@
+#!/bin/bash
+
+# Default GPU
+GPU_ID=0
+
+# Parse arguments for --gpu
+args=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --gpu)
+            GPU_ID="$2"
+            shift 2
+            ;;
+        *)
+            args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Set the remaining arguments back
+set -- "${args[@]}"
+
+export CUDA_VISIBLE_DEVICES=$GPU_ID && \
 export XLA_PYTHON_CLIENT_PREALLOCATE=false && \
 export XLA_PYTHON_CLIENT_MEM_FRACTION=.3 && \
 python ../../train_rlpd_sim.py "$@" \
     --exp_name=pick_cube_sim \
-    --checkpoint_path=six_run \
-    --demo_path=../../../demo_data/pick_cube_sim_30_demos_2025-01-22_11-04-51.pkl\
+    --checkpoint_path=/home/kinova/ssd1/qyh/pick_cube_sim/checkpoint \
     --learner \
+    --demo_path=demo_data/pick_cube_sim_20_demos.pkl
+

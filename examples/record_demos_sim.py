@@ -8,7 +8,6 @@ from absl import app, flags
 import time
 
 from experiments.mappings import CONFIG_MAPPING
-from pynput import keyboard
 from franka_sim.utils.viewer_utils import DualMujocoViewer
 
 FLAGS = flags.FLAGS
@@ -31,6 +30,17 @@ def main(_):
     returns = 0
     # Create the dual viewer
     dual_viewer = DualMujocoViewer(env.unwrapped.model, env.unwrapped.data)
+
+    # Attempt to attach viewer to any wrapper that supports it
+    current_env = env
+    while True:
+        if hasattr(current_env, 'attach_viewer'):
+            current_env.attach_viewer(dual_viewer.viewer_1)
+        
+        if hasattr(current_env, 'env'):
+            current_env = current_env.env
+        else:
+            break
 
     print("Press shift to start recording.\nIf your controller is not working check controller_type (default is xbox) is configured in examples/experiments/pick_cube_sim/config.py")
     with dual_viewer as viewer:
