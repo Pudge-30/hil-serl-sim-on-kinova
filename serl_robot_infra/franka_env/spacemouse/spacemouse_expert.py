@@ -66,6 +66,7 @@ class SpaceMouseExpert:
 class ControllerType(Enum):
     PS5 = "ps5"
     XBOX = "xbox"
+    GAMESIR = "gamesir"  # 盖世小鸡启明星2无线手柄
 
 @dataclass
 class ControllerConfig:
@@ -122,6 +123,27 @@ class JoystickExpert:
                 'ABS_HAT0X': 0.3,
             }
         ),
+        ControllerType.GAMESIR: ControllerConfig(
+            # 盖世小鸡启明星2无线手柄使用 16 位分辨率 [0, 65535]，类似 XBOX
+            resolution={
+                'ABS_X': 2**16,
+                'ABS_Y': 2**16,
+                'ABS_RX': 2**16,
+                'ABS_RY': 2**16,
+                'ABS_Z': 2**8,
+                'ABS_RZ': 2**8,
+                'ABS_HAT0X': 1.0,
+            },
+            scale={
+                'ABS_X': -0.1,
+                'ABS_Y': -0.1,
+                'ABS_RX': 0.3,
+                'ABS_RY': 0.3,
+                'ABS_Z': 0.05,
+                'ABS_RZ': 0.05,
+                'ABS_HAT0X': 0.3,
+            }
+        ),
     }
 
     def __init__(self, controller_type=ControllerType.XBOX):
@@ -158,6 +180,7 @@ class JoystickExpert:
                         if self.controller_type == ControllerType.PS5:
                             normalized_value = (event.state - (resolution / 2)) / (resolution / 2)
                         else:
+                            # XBOX 和 GAMESIR 使用相同的归一化方式
                             normalized_value = event.state / (resolution / 2)
                         scaled_value = normalized_value * self.controller_config.scale[event.code]
 

@@ -111,3 +111,76 @@ During training (in the Actor window), you can intervene at any time to correct 
 - Use this to guide the robot when it gets stuck or moves incorrectly.
 
 **Note:** Make sure your controller is properly configured. Check `controller_type` (default is xbox) in `examples/experiments/pick_cube_sim/config.py` if your controller is not working.
+
+## 4. 测试手柄连接与功能
+
+在开始训练之前，建议先测试手柄是否正常工作。
+
+### 测试手柄
+
+从项目根目录运行：
+
+```bash
+# 测试盖世小鸡启明星2无线手柄（默认）
+python examples/experiments/pick_cube_sim/test_controller.py --controller gamesir
+
+# 测试 XBOX 手柄
+python examples/experiments/pick_cube_sim/test_controller.py --controller xbox
+
+# 测试 PS5 手柄
+python examples/experiments/pick_cube_sim/test_controller.py --controller ps5
+
+# 查看原始手柄事件（用于调试）
+python examples/experiments/pick_cube_sim/test_controller.py --raw
+```
+
+### 测试程序功能
+
+测试程序会显示：
+- **6自由度动作值**：实时显示摇杆和扳机输入
+- **按钮状态**：显示夹爪控制按钮（左扳机/右扳机）的状态
+- **可视化指示器**：用图形显示摇杆偏移量
+
+### 手柄操作说明
+
+- **左摇杆**：控制机械臂的 X（前后）和 Y（左右）移动
+- **右摇杆**：控制机械臂的旋转（RX 和 RY）
+- **扳机键**：控制机械臂的 Z（上下）移动
+- **左扳机 (BTN_TL)**：关闭夹爪
+- **右扳机 (BTN_TR)**：打开夹爪
+
+### 故障排除
+
+如果手柄无法识别：
+
+1. **检查手柄连接**：
+   ```bash
+   # Linux: 检查设备
+   lsusb | grep -i gamepad
+   ls /dev/input/
+   
+   # 检查权限（可能需要将用户添加到 input 组）
+   groups
+   sudo usermod -a -G input $USER
+   ```
+
+2. **查看原始事件**：
+   ```bash
+   python examples/experiments/pick_cube_sim/test_controller.py --raw
+   ```
+   这会显示所有手柄事件，帮助诊断问题。
+
+3. **检查配置**：
+   如果手柄行为异常，可能需要调整 `serl_robot_infra/franka_env/spacemouse/spacemouse_expert.py` 中的 `GAMESIR` 配置参数（分辨率和缩放因子）。
+
+### 在配置中使用手柄
+
+在 `config.py` 中设置手柄类型：
+
+```python
+from franka_env.envs.wrappers import ControllerType
+
+class TrainConfig(DefaultTrainingConfig):
+    controller_type = ControllerType.GAMESIR  # 使用盖世小鸡手柄
+    # ... 其他配置 ...
+```
