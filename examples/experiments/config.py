@@ -6,7 +6,7 @@ from franka_env.envs.wrappers import (
 
 class DefaultTrainingConfig:
     """Default training configuration. """
-    controller_type: ControllerType = ControllerType.XBOX
+    controller_type: ControllerType = ControllerType.GAMESIR
 
     agent: str = "drq"
     max_traj_length: int = 100

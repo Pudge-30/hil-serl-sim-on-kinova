@@ -128,14 +128,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 测试盖世小鸡手柄
+  # 测试盖世小鸡启明星2无线手柄（默认）
   python test_controller.py --controller gamesir
   
-  # 测试 XBOX 手柄
-  python test_controller.py --controller xbox
-  
-  # 测试 PS5 手柄
-  python test_controller.py --controller ps5
+  # 或直接运行（默认就是gamesir）
+  python test_controller.py
   
   # 查看原始事件（用于调试）
   python test_controller.py --raw
@@ -146,8 +143,8 @@ def main():
         "--controller",
         type=str,
         default="gamesir",
-        choices=["gamesir", "xbox", "ps5"],
-        help="手柄类型 (默认: gamesir)"
+        choices=["gamesir"],
+        help="手柄类型 (默认: gamesir，仅支持盖世小鸡启明星2无线手柄)"
     )
     
     parser.add_argument(
@@ -164,8 +161,6 @@ def main():
         # 将字符串转换为 ControllerType 枚举
         controller_map = {
             "gamesir": ControllerType.GAMESIR,
-            "xbox": ControllerType.XBOX,
-            "ps5": ControllerType.PS5,
         }
         controller_type = controller_map[args.controller.lower()]
         test_controller_mapping(controller_type)

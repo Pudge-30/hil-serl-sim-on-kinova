@@ -47,9 +47,22 @@ class DualMujocoViewer:
         #     self.viewer_2.sync()
 
     def close(self):
-        import glfw
-        if self.viewer_1:
-            self.viewer_1.close()
-        # if self.viewer_2:
-        #     self.viewer_2.close()
-        glfw.terminate()
+        """
+        关闭viewer并清理资源
+        
+        注意：MuJoCo viewer的close()方法应该已经处理了GLFW资源的清理。
+        我们不应该手动调用glfw.terminate()，因为这可能会影响其他使用GLFW的代码。
+        """
+        try:
+            if self.viewer_1:
+                self.viewer_1.close()
+                self.viewer_1 = None
+            # if self.viewer_2:
+            #     self.viewer_2.close()
+            #     self.viewer_2 = None
+        except Exception as e:
+            print(f"关闭viewer时出现警告: {e}")
+        
+        # 不再手动调用glfw.terminate()
+        # MuJoCo viewer的close()方法应该已经处理了GLFW资源的清理
+        # 手动调用glfw.terminate()会导致后续使用GLFW的操作失败（如环境重置等）

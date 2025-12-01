@@ -402,7 +402,7 @@ class DualGripperPenaltyWrapper(gym.RewardWrapper):
         return observation, reward, terminated, truncated, info
 
 class JoystickIntervention(gym.ActionWrapper):
-    def __init__(self, env, action_indices=None, controller_type=ControllerType.XBOX):
+    def __init__(self, env, action_indices=None, controller_type=ControllerType.GAMESIR):
         super().__init__(env)
 
         self.gripper_enabled = True
@@ -421,7 +421,7 @@ class JoystickIntervention(gym.ActionWrapper):
         Output:
         - action: joystick action if nonezero; else, policy action
         """
-        deadzone = 0.03
+        deadzone = 0.01  # 减小死区，确保小幅度摇杆移动也能触发干预
 
         expert_a, buttons = self.expert.get_action()
         self.left, self.right = tuple(buttons)

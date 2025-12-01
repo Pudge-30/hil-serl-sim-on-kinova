@@ -110,7 +110,7 @@ During training (in the Actor window), you can intervene at any time to correct 
 - When you release the controls, it returns control to the policy.
 - Use this to guide the robot when it gets stuck or moves incorrectly.
 
-**Note:** Make sure your controller is properly configured. Check `controller_type` (default is xbox) in `examples/experiments/pick_cube_sim/config.py` if your controller is not working.
+**Note:** 本系统仅支持盖世小鸡启明星2无线手柄。确保手柄已正确连接并配置。
 
 ## 4. 测试手柄连接与功能
 
@@ -121,18 +121,17 @@ During training (in the Actor window), you can intervene at any time to correct 
 从项目根目录运行：
 
 ```bash
-# 测试盖世小鸡启明星2无线手柄（默认）
+# 测试盖世小鸡启明星2无线手柄（默认，也是唯一支持的手柄）
 python examples/experiments/pick_cube_sim/test_controller.py --controller gamesir
 
-# 测试 XBOX 手柄
-python examples/experiments/pick_cube_sim/test_controller.py --controller xbox
-
-# 测试 PS5 手柄
-python examples/experiments/pick_cube_sim/test_controller.py --controller ps5
+# 或直接运行（默认就是gamesir）
+python examples/experiments/pick_cube_sim/test_controller.py
 
 # 查看原始手柄事件（用于调试）
 python examples/experiments/pick_cube_sim/test_controller.py --raw
 ```
+
+**注意：** 本系统仅支持盖世小鸡启明星2无线手柄，不支持其他手柄类型。
 
 ### 测试程序功能
 
@@ -171,16 +170,18 @@ python examples/experiments/pick_cube_sim/test_controller.py --raw
    这会显示所有手柄事件，帮助诊断问题。
 
 3. **检查配置**：
-   如果手柄行为异常，可能需要调整 `serl_robot_infra/franka_env/spacemouse/spacemouse_expert.py` 中的 `GAMESIR` 配置参数（分辨率和缩放因子）。
+   如果手柄行为异常，可能需要调整 `serl_robot_infra/franka_env/spacemouse/spacemouse_expert.py` 中的 `CONTROLLER_CONFIG` 配置参数（分辨率和缩放因子）。
 
 ### 在配置中使用手柄
 
-在 `config.py` 中设置手柄类型：
+在 `config.py` 中，手柄类型已默认设置为盖世小鸡：
 
 ```python
 from franka_env.envs.wrappers import ControllerType
 
 class TrainConfig(DefaultTrainingConfig):
-    controller_type = ControllerType.GAMESIR  # 使用盖世小鸡手柄
+    controller_type = ControllerType.GAMESIR  # 盖世小鸡启明星2无线手柄（默认）
     # ... 其他配置 ...
 ```
+
+**注意：** 系统仅支持盖世小鸡启明星2无线手柄，无需修改此配置。
